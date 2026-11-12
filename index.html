@@ -1,0 +1,67 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Snake</title>
+<style>
+  body { background: #111; color: #eee; font: 16px sans-serif; text-align: center; margin: 2em; }
+  canvas { background: #000; border: 2px solid #444; }
+</style>
+<h1>Snake</h1>
+<p>Score: <span id="score">0</span> · Arrows/WASD to move · Space to restart</p>
+<canvas id="c" width="400" height="400"></canvas>
+<script>
+const N = 20, S = 20;
+const DIRS = { ArrowUp: [0, -1], w: [0, -1], ArrowDown: [0, 1], s: [0, 1], ArrowLeft: [-1, 0], a: [-1, 0], ArrowRight: [1, 0], d: [1, 0] };
+const ctx = document.getElementById('c').getContext('2d');
+
+function newGame() {
+  return { snake: [[10, 10], [9, 10], [8, 10]], dir: [1, 0], next: [1, 0], food: [15, 10], dead: false };
+}
+
+// Advances one tick. rand is injectable so food placement is testable.
+function step(g, rand = Math.random) {
+  if (g.dead) return;
+  g.dir = g.next;
+  const head = [g.snake[0][0] + g.dir[0], g.snake[0][1] + g.dir[1]];
+  const eats = head[0] === g.food[0] && head[1] === g.food[1];
+  // the tail moves away this tick unless we eat, so it isn't a collision
+  const body = eats ? g.snake : g.snake.slice(0, -1);
+  if (head[0] < 0 || head[1] < 0 || head[0] >= N || head[1] >= N ||
+      body.some(([x, y]) => x === head[0] && y === head[1])) { g.dead = true; return; }
+  g.snake.unshift(head);
+  if (!eats) { g.snake.pop(); return; }
+  const free = [];
+  for (let x = 0; x < N; x++) for (let y = 0; y < N; y++)
+    if (!g.snake.some(([sx, sy]) => sx === x && sy === y)) free.push([x, y]);
+  if (free.length) g.food = free[Math.floor(rand() * free.length)];
+  else g.dead = true; // board full: you won, game ends
+}
+
+function turn(g, key) {
+  const d = DIRS[key];
+  if (d && (d[0] !== -g.dir[0] || d[1] !== -g.dir[1])) g.next = d; // no 180° reversal
+}
+
+function draw(g) {
+  ctx.clearRect(0, 0, N * S, N * S);
+  ctx.fillStyle = '#e33';
+  ctx.fillRect(g.food[0] * S, g.food[1] * S, S - 1, S - 1);
+  ctx.fillStyle = '#3c3';
+  g.snake.forEach(([x, y]) => ctx.fillRect(x * S, y * S, S - 1, S - 1));
+  if (g.dead) {
+    ctx.fillStyle = '#fff'; ctx.font = '28px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Game over - Space to restart', 200, 200, 380);
+  }
+  document.getElementById('score').textContent = g.snake.length - 3;
+}
+
+if (typeof document !== 'undefined' && document.getElementById('c')) {
+  let g = newGame();
+  addEventListener('keydown', e => {
+    if (e.key === ' ') { g = newGame(); draw(g); return; }
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (DIRS[k]) { e.preventDefault(); turn(g, k); }
+  });
+  setInterval(() => { step(g); draw(g); }, 110);
+  draw(g);
+}
+</script>
